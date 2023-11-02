@@ -16,7 +16,7 @@ echo "========================================" | tee -a "$LOGFILE"
 # Monitor disk I/O activity using iotop
 while true; do
     echo "Timestamp: $(date)" | tee -a "$LOGFILE"
-    iotop -n 1 -b -o | tee -a "$LOGFILE"  # -n 1: take 1 snapshot, -b: batch mode, -o: only show processes doing I/O
+    iotop -n 1 -b | tee -a "$LOGFILE"  # -n 1: take 1 snapshot, -b: batch mode
     echo "----------------------------------------" | tee -a "$LOGFILE"
     sleep 10  # Wait for 10 seconds before the next snapshot
 done
