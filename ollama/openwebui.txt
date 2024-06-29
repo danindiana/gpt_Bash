@@ -1,0 +1,40 @@
+The Bash script aims to accomplish two key tasks:
+
+1. **Local Model Loading with Ollama:** Ollama is a tool designed to streamline the process of running LLMs. The script sets up Ollama to recognize and use `.gguf` model files stored on your local system, even if they aren't in the default Ollama model directory.
+2. **Integrating Open-Webui with Ollama:** Open-Webui is a popular interface for interacting with LLMs. The script configures Open-Webui to use your locally running Ollama instance as its language model backend.
+
+**Detailed Explanation**
+
+Here's a breakdown of the main steps involved:
+
+1. **Ollama Installation and Setup:**
+   - `mkdir ollama; cd ollama`: Creates a directory for Ollama.
+   - `curl ... | sh`: Downloads and runs the Ollama installation script.
+   - `ollama list`, `ollama run llama2:latest`: Basic Ollama commands to verify installation and test the default model.
+   - `cd /usr/share/ollama/.ollama/models`: Navigates to the Ollama models directory.
+   - `ln -s ...`: Creates symbolic links to your `.gguf` model files within the Ollama models directory. This makes them accessible to Ollama.
+
+2. **Nvidia Docker Setup (Optional):**
+   - If you have an Nvidia GPU, the script includes steps to set up Nvidia Docker, which can leverage your GPU for faster model inference.
+   - If you don't have an Nvidia GPU or prefer not to use Nvidia Docker, this section can be safely skipped.
+
+3. **Open-Webui Docker Setup:**
+   - `docker run ...`: Starts an Open-Webui Docker container. Important parameters include:
+      - `-p 3000:8080`: Maps port 8080 inside the container to port 3000 on your host machine.
+      - `--add-host ...`: Sets up networking to allow communication between Ollama and Open-Webui running in Docker.
+      - `-v open-webui:/app/backend/data`: Mounts a volume to store Open-Webui data.
+      - `ghcr.io/open-webui/open-webui:main`: The Open-Webui Docker image to use. If you have an Nvidia GPU you may need to change `:main` to `:cuda` or use `--gpus all`
+
+4. **Connecting Open-Webui to Ollama:**
+   - The script sets an environment variable (`OLLAMA_API_BASE_URL`) in the Open-Webui container to the address of your running Ollama instance.
+
+5. **Model Creation and Management:**
+   - The script uses the `ollama create` command with `Modelfile` (which contains the path to your model) to make your local models available to Ollama.
+   - `ollama list` displays the available models.
+   - `ollama serve`: Instructs Ollama to serve a specific model.  
+
+**Troubleshooting**
+
+- **Docker Issues:** If you encounter issues with Docker, make sure Docker is installed and running correctly. Pay attention to port conflicts and adjust the port mappings if necessary.
+- **Ollama Configuration:**  Double-check the paths in your `Modelfile` to ensure they are correct. Ensure you are using the correct Modelfile as the script references various locations for it. 
+- **Firewall:** If you have a firewall enabled, ensure that it is not blocking traffic between Ollama and Open-Webui.
