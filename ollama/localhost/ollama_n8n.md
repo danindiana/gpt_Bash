@@ -1,3 +1,44 @@
+```mermaid
+graph TD
+    A[Install Certbot and Nginx] --> B[Configure Nginx as a Reverse Proxy]
+    B --> C[Create n8n Server Block]
+    C --> D[Enable n8n Server Block]
+    D --> E[Disable Default Server Block]
+    E --> F[Request a Certificate Using Certbot]
+    F --> G[Restart Nginx]
+    G --> H[Verify the Configuration]
+    H --> I[Check Nginx Configuration]
+    I --> J[Access n8n via HTTPS]
+
+    subgraph Helper Functions
+        K[install_package]
+        L[create_file]
+        M[create_symlink]
+        N[remove_symlink]
+        O[run_command]
+        P[restart_service]
+        Q[check_nginx_configuration]
+        R[access_url]
+        S[write_content_to_file]
+        T[open_browser]
+        U[execute]
+        V[write]
+    end
+
+    A --> K
+    B --> L
+    D --> M
+    E --> N
+    F --> O
+    G --> P
+    H --> Q
+    J --> R
+    L --> S
+    R --> T
+    O --> U
+    S --> V
+```
+
 To run n8n using localhost with Ollama, you need to ensure that your n8n instance can communicate with the Ollama service. If you are running n8n in a Docker container and Ollama directly on your host machine, you might encounter connection issues due to Docker's network isolation.
 
 Here are the steps to resolve this:
