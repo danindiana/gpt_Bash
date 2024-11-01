@@ -39,6 +39,33 @@ graph TD
     S --> V
 ```
 
+```mermaid
+graph TD;
+    A[Install Docker] --> B[Pull n8n image];
+    B --> C{Choose network mode};
+    C -->|Host Network| D[Run n8n with --network host];
+    C -->|Bridge Network| E[Create a network and run n8n on it];
+    D --> F[n8n running on localhost:5678];
+    E --> F;
+    F --> G{Configure Ollama};
+    G --> H[Start Ollama on localhost:11434];
+    H --> I{Ollama running on localhost};
+    I --> J{Access n8n locally or remotely};
+    J -->|Locally| K[Open browser and navigate to http://localhost:5678];
+    J -->|Remotely| L[Forward port 5678 to local IP address];
+    L --> M[Access n8n using public IP address or dynamic DNS hostname followed by :5678];
+    K --> N[n8n dashboard];
+    M --> N;
+    N --> O{Configure HTTPS};
+    O -->|No| P[Done];
+    O -->|Yes| Q[Install Certbot and Nginx];
+    Q --> R[Configure Nginx as a reverse proxy for n8n];
+    R --> S[Request a certificate using Certbot];
+    S --> T[Restart Nginx];
+    T --> U[n8n accessible via HTTPS at https://<your_domain_or_ip>];
+    U --> P;
+```
+
 To run n8n using localhost with Ollama, you need to ensure that your n8n instance can communicate with the Ollama service. If you are running n8n in a Docker container and Ollama directly on your host machine, you might encounter connection issues due to Docker's network isolation.
 
 Here are the steps to resolve this:
