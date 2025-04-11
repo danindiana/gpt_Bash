@@ -1,0 +1,1 @@
+Nvidia cards offer their own audio HDMI out device. That takes up IRQ scheduling on host systems which may not utilize them. Here's a complete bash script that automates the entire process of disabling NVIDIA audio controllers while preserving AMD audio functionality, etc.
