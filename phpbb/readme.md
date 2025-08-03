@@ -1,5 +1,7 @@
 Key Issues These Scripts Solve
-The scripts I created address all the problems we encountered:
+
+Address all the problems we encountered:
+
 Main Issues We Faced:
 
 Missing Composer - Script auto-installs it
