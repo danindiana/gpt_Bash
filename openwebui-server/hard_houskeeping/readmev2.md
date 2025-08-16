@@ -209,7 +209,7 @@ This stops your service, restores the last backup venv, and restarts your instan
 
 ---
 
-Feel free to customize paths, user names, or scheduling mechanisms as needed. Let me know if you'd like ready-to-use scripts for cron scheduling, rollback dashboards, or backup rotation!
+Feel free to customize paths, user names, or scheduling mechanisms as needed. 
 
 [1]: https://docs.openwebui.com/tutorials/maintenance/backups/?utm_source=chatgpt.com "Backups"
 [2]: https://docs.vultr.com/how-to-install-open-webui-an-opensource-web-interface-for-running-llms?utm_source=chatgpt.com "How to Install Open WebUI - An Opensource Web Interface ..."
