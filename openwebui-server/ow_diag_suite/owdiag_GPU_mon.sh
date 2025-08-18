@@ -1,183 +1,291 @@
 #!/bin/bash
 
-# CUDA/GPU Monitoring and Recovery Script
-# Handles the mysterious CUDA dropouts you mentioned
+# Quick Fix Toolkit for Common OpenWebUI Issues
+# One-command solutions for frequent problems
 
 set -euo pipefail
 
-YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
-log() { echo -e "[$(date +'%H:%M:%S')] $1"; }
+log() { echo -e "${BLUE}[$(date +'%H:%M:%S')]${NC} $1"; }
 success() { echo -e "${GREEN}✓${NC} $1"; }
 warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 error() { echo -e "${RED}✗${NC} $1"; }
 
-check_cuda_health() {
-    log "Checking CUDA/GPU health..."
+# Common service names
+OPENWEBUI_SERVICE="openwebui"
+DOMAIN="ryleh-openweb.duckdns.org"
+
+restart_stack() {
+    log "Restarting entire OpenWebUI stack..."
     
-    # Basic NVIDIA driver check
-    if ! command -v nvidia-smi >/dev/null 2>&1; then
-        error "nvidia-smi not found - driver issue?"
-        return 1
-    fi
+    log "Stopping services..."
+    sudo systemctl stop $OPENWEBUI_SERVICE || warning "OpenWebUI already stopped"
+    sudo systemctl stop ollama || warning "Ollama already stopped"
     
-    # Check GPU accessibility
-    if ! nvidia-smi -L >/dev/null 2>&1; then
-        error "Cannot enumerate GPUs - driver crashed?"
-        return 1
-    fi
+    log "Starting Ollama..."
+    sudo systemctl start ollama
+    sleep 3
     
-    local gpu_count=$(nvidia-smi -L | wc -l)
-    success "Found $gpu_count GPU(s)"
+    log "Starting OpenWebUI..."
+    sudo systemctl start $OPENWEBUI_SERVICE
+    sleep 5
     
-    # Check for common CUDA issues
-    local temp_issues=0
-    local mem_issues=0
+    log "Restarting Nginx..."
+    sudo systemctl restart nginx
     
-    nvidia-smi --query-gpu=temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits | \
-    while IFS=, read -r temp mem_used mem_total; do
-        if [[ ${temp%.*} -gt 85 ]]; then
-            warning "GPU temperature high: ${temp}°C"
-            ((temp_issues++))
-        fi
-        
-        local mem_percent=$((mem_used * 100 / mem_total))
-        if [[ $mem_percent -gt 95 ]]; then
-            warning "GPU memory nearly full: ${mem_percent}%"
-            ((mem_issues++))
-        fi
-    done
+    success "Stack restart complete"
     
-    # Check CUDA context
-    if command -v python3 >/dev/null 2>&1; then
-        log "Testing CUDA context creation..."
-        if python3 -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPUs: {torch.cuda.device_count()}')" 2>/dev/null; then
-            success "PyTorch CUDA context OK"
-        else
-            warning "PyTorch cannot access CUDA"
-        fi
+    # Quick health check
+    if curl -s http://localhost:5000 >/dev/null; then
+        success "OpenWebUI responding locally"
+    else
+        error "OpenWebUI not responding - check logs"
     fi
 }
 
-test_ollama_gpu() {
-    log "Testing Ollama GPU utilization..."
+fix_permissions() {
+    log "Fixing common permission issues..."
     
-    if ! systemctl is-active ollama >/dev/null 2>&1; then
-        error "Ollama service not running"
-        return 1
+    local data_dir="/var/lib/open-webui"
+    local venv_dir="/home/randy/programs/py_progs/openwebui"
+    
+    if [[ -d "$data_dir" ]]; then
+        log "Fixing data directory permissions..."
+        sudo chown -R randy:randy "$data_dir"
+        sudo chmod -R 755 "$data_dir"
+        success "Data directory permissions fixed"
     fi
     
-    # Check if models are using GPU
-    local models_loaded=$(curl -s http://localhost:11434/api/ps | jq -r '.models[]?.name // empty' 2>/dev/null | wc -l)
+    if [[ -d "$venv_dir" ]]; then
+        log "Fixing virtual environment permissions..."
+        sudo chown -R randy:randy "$venv_dir"
+        success "Virtual environment permissions fixed"
+    fi
     
-    if [[ $models_loaded -eq 0 ]]; then
-        log "No models loaded, loading test model..."
-        # Load a small model to test GPU
-        curl -s http://localhost:11434/api/generate -d '{"model":"llama3.2:1b","prompt":"test","stream":false}' >/dev/null 2>&1 &
-        local curl_pid=$!
-        
-        sleep 5
-        kill $curl_pid 2>/dev/null || true
-        
-        # Check GPU utilization during load
-        local gpu_util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -1)
-        if [[ ${gpu_util%.*} -gt 0 ]]; then
-            success "GPU utilization detected: ${gpu_util}%"
-        else
-            warning "No GPU utilization during model load"
-        fi
+    log "Fixing service file permissions..."
+    sudo chmod 644 /etc/systemd/system/$OPENWEBUI_SERVICE.service*
+    sudo systemctl daemon-reload
+    success "Service permissions fixed"
+}
+
+clear_cache() {
+    log "Clearing caches and temporary files..."
+    
+    # Python cache
+    find /home/randy/programs/py_progs/openwebui -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+    find /home/randy/programs/py_progs/openwebui -name "*.pyc" -delete 2>/dev/null || true
+    
+    # Pip cache
+    /home/randy/programs/py_progs/openwebui/venv/bin/pip cache purge 2>/dev/null || true
+    
+    # System temp files
+    sudo systemctl stop $OPENWEBUI_SERVICE
+    rm -rf /tmp/openwebui* 2>/dev/null || true
+    
+    success "Caches cleared"
+}
+
+update_ssl() {
+    log "Updating SSL certificate..."
+    
+    if sudo certbot renew --dry-run; then
+        log "Running actual certificate renewal..."
+        sudo certbot renew
+        sudo systemctl restart nginx
+        success "SSL certificate updated"
     else
-        success "$models_loaded model(s) currently loaded"
+        error "Certificate renewal failed - check configuration"
     fi
 }
 
-cuda_recovery() {
-    warning "Attempting CUDA recovery..."
+reset_networking() {
+    log "Resetting network configuration..."
     
-    # Step 1: Restart Ollama (often fixes GPU context issues)
-    log "Restarting Ollama service..."
-    if sudo systemctl restart ollama; then
-        success "Ollama restarted"
-        sleep 3
+    # Restart networking components
+    sudo systemctl restart systemd-resolved
+    sudo systemctl restart nginx
+    
+    # Flush DNS
+    sudo systemd-resolve --flush-caches
+    
+    # Test connectivity
+    if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+        success "External connectivity OK"
     else
-        error "Failed to restart Ollama"
+        warning "No external connectivity"
     fi
     
-    # Step 2: Clear GPU memory if possible
-    log "Attempting to clear GPU memory..."
-    if command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --gpu-reset 2>/dev/null || warning "GPU reset not supported"
-    fi
-    
-    # Step 3: Restart OpenWebUI if it's running
-    if systemctl is-active openwebui >/dev/null 2>&1; then
-        log "Restarting OpenWebUI service..."
-        if sudo systemctl restart openwebui; then
-            success "OpenWebUI restarted"
-            sleep 5
-        else
-            error "Failed to restart OpenWebUI"
-        fi
-    fi
-    
-    # Step 4: Test recovery
-    log "Testing recovery..."
-    if check_cuda_health && test_ollama_gpu; then
-        success "CUDA recovery appears successful"
-        return 0
+    if nslookup $DOMAIN >/dev/null 2>&1; then
+        success "DNS resolution OK"
     else
-        error "Recovery failed - may need driver reload"
-        return 1
+        warning "DNS resolution failed"
     fi
 }
 
-monitor_gpu() {
-    log "Starting GPU monitoring (Ctrl+C to stop)..."
+fix_cuda() {
+    log "Attempting CUDA fix..."
     
-    while true; do
-        clear
-        echo "GPU Monitoring - $(date)"
-        echo "=================================="
+    # Restart services that use CUDA
+    sudo systemctl restart ollama
+    sleep 3
+    sudo systemctl restart $OPENWEBUI_SERVICE
+    sleep 5
+    
+    # Test CUDA
+    if nvidia-smi >/dev/null 2>&1; then
+        success "NVIDIA drivers responding"
         
-        nvidia-smi --query-gpu=name,temperature.gpu,memory.used,memory.total,utilization.gpu,utilization.memory --format=table
+        # Test PyTorch CUDA
+        local venv_python="/home/randy/programs/py_progs/openwebui/venv/bin/python"
+        if $venv_python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
+            success "PyTorch CUDA working"
+        else
+            warning "PyTorch CUDA not working - may need reinstall"
+        fi
+    else
+        error "NVIDIA drivers not responding"
+    fi
+}
+
+check_logs() {
+    log "Checking recent error logs..."
+    
+    echo
+    log "OpenWebUI errors (last 20 lines):"
+    journalctl -u $OPENWEBUI_SERVICE --no-pager -n 20 | grep -i "error\|exception\|failed" || echo "No recent errors"
+    
+    echo
+    log "Nginx errors (last 10 lines):"
+    sudo tail -10 /var/log/nginx/error.log 2>/dev/null | grep -v "^\s*$" || echo "No recent errors"
+    
+    echo
+    log "System errors (last 10 lines):"
+    journalctl --no-pager -p err -n 10 --since "1 hour ago" || echo "No recent system errors"
+}
+
+full_diagnostics() {
+    log "Running full diagnostic suite..."
+    
+    # Use the main diagnostic script if available
+    if [[ -f "./openwebui_diagnostics.sh" ]]; then
+        ./openwebui_diagnostics.sh
+    else
+        # Basic checks
+        log "Service status:"
+        systemctl status $OPENWEBUI_SERVICE --no-pager -l || true
         
         echo
-        echo "Ollama Status:"
-        if curl -s http://localhost:11434/api/ps 2>/dev/null | jq -e '.models[]' >/dev/null 2>&1; then
-            curl -s http://localhost:11434/api/ps | jq -r '.models[] | "  \(.name): \(.size_vram // "unknown") VRAM"' 2>/dev/null
-        else
-            echo "  No models loaded"
-        fi
+        log "Port availability:"
+        ss -tlnp | grep -E ":(80|443|5000|11434)" || echo "No relevant ports listening"
         
         echo
-        echo "OpenWebUI Status: $(systemctl is-active openwebui 2>/dev/null)"
-        
-        sleep 5
-    done
+        log "Basic connectivity:"
+        curl -s -o /dev/null -w "Local OpenWebUI: %{http_code}\n" http://localhost:5000 || echo "Local connection failed"
+        curl -s -o /dev/null -w "External HTTPS: %{http_code}\n" https://$DOMAIN || echo "External connection failed"
+    fi
+}
+
+emergency_recovery() {
+    warning "Running emergency recovery procedure..."
+    
+    log "1. Stopping all services..."
+    sudo systemctl stop $OPENWEBUI_SERVICE || true
+    sudo systemctl stop ollama || true
+    sudo systemctl stop nginx || true
+    
+    log "2. Killing any hanging processes..."
+    sudo pkill -f "open-webui" || true
+    sudo pkill -f "ollama" || true
+    
+    log "3. Clearing temporary files..."
+    clear_cache
+    
+    log "4. Fixing permissions..."
+    fix_permissions
+    
+    log "5. Restarting services in order..."
+    sudo systemctl start ollama
+    sleep 5
+    sudo systemctl start $OPENWEBUI_SERVICE
+    sleep 5
+    sudo systemctl start nginx
+    
+    log "6. Testing recovery..."
+    sleep 10
+    if curl -s http://localhost:5000 >/dev/null; then
+        success "Emergency recovery successful"
+    else
+        error "Emergency recovery failed - manual intervention required"
+        check_logs
+    fi
+}
+
+show_help() {
+    echo "OpenWebUI Quick Fix Toolkit"
+    echo
+    echo "Usage: $0 [command]"
+    echo
+    echo "Commands:"
+    echo "  restart     - Restart entire stack (ollama -> openwebui -> nginx)"
+    echo "  permissions - Fix file and service permissions"
+    echo "  cache       - Clear all caches and temporary files"
+    echo "  ssl         - Update SSL certificate"
+    echo "  network     - Reset networking components"
+    echo "  cuda        - Fix CUDA/GPU issues"
+    echo "  logs        - Check recent error logs"
+    echo "  diagnose    - Run full diagnostic suite"
+    echo "  emergency   - Emergency recovery (stops everything, cleans, restarts)"
+    echo "  help        - Show this help"
+    echo
+    echo "Example: $0 restart"
 }
 
 main() {
-    case "${1:-check}" in
-        "check")
-            check_cuda_health
-            test_ollama_gpu
+    local command="${1:-help}"
+    
+    case "$command" in
+        "restart")
+            restart_stack
             ;;
-        "recover")
-            cuda_recovery
+        "permissions")
+            fix_permissions
             ;;
-        "monitor")
-            monitor_gpu
+        "cache")
+            clear_cache
             ;;
-        *)
-            echo "Usage: $0 [check|recover|monitor]"
-            echo "  check   - Check CUDA/GPU health (default)"
-            echo "  recover - Attempt to recover from CUDA issues"
-            echo "  monitor - Real-time GPU monitoring"
+        "ssl")
+            update_ssl
+            ;;
+        "network")
+            reset_networking
+            ;;
+        "cuda")
+            fix_cuda
+            ;;
+        "logs")
+            check_logs
+            ;;
+        "diagnose")
+            full_diagnostics
+            ;;
+        "emergency")
+            emergency_recovery
+            ;;
+        "help"|*)
+            show_help
             ;;
     esac
 }
+
+# Require root for most operations
+if [[ $EUID -ne 0 ]] && [[ "${1:-}" != "help" ]] && [[ "${1:-}" != "logs" ]] && [[ "${1:-}" != "diagnose" ]]; then
+    echo "Most operations require root privileges. Rerunning with sudo..."
+    exec sudo -E "$0" "$@"
+fi
 
 main "$@"
