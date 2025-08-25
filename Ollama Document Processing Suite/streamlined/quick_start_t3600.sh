@@ -121,13 +121,19 @@ async def process_with_progress(session, files, prompt, model, server, batch_siz
     """Process files with progress indicator and batching"""
     results = []
     
-    async with atqdm(total=len(files), desc=f"Processing with {model.split(':')[0]}") as pbar:
+    # Process in batches to avoid overwhelming the server
+    with tqdm(total=len(files), desc=f"Processing with {model.split(':')[0]}") as pbar:
         for i in range(0, len(files), batch_size):
             batch = files[i:i+batch_size]
             
-            # Process batch
-            tasks = [process_file(session, f, prompt, model, server) for f in batch]
-            batch_results = await asyncio.gather(*tasks)
+            # Create coroutines for the batch
+            coroutines = [process_file(session, f, prompt, model, server) for f in batch]
+            
+            # Process batch and collect results
+            batch_results = [
+                await task for task in asyncio.as_completed(coroutines)
+            ]
+            
             results.extend(batch_results)
             
             # Update progress
@@ -135,9 +141,9 @@ async def process_with_progress(session, files, prompt, model, server, batch_siz
             
             # Show quick stats
             successful = sum(1 for r in batch_results if r.get("success"))
-            pbar.set_postfix({"Success": f"{successful}/{len(batch)}"})
+            pbar.set_postfix({"Success": f"{successful}/{len(batch)}", "Total": f"{len(results)}/{len(files)}"})
             
-            # Brief pause to prevent overwhelming the server
+            # Brief pause between batches to prevent overwhelming the server
             await asyncio.sleep(0.5)
     
     return results
@@ -640,6 +646,33 @@ print(f\"  Models: {', '.join(summary['models_used'])}\")
         echo "  3. Choose option 8: 'Complete automated setup'"
         echo
         echo "The full setup builds on this quick start and adds enterprise-grade features."
+        ;;
+    
+    *)
+        echo "Invalid choice"
+        exit 1
+        ;;
+esac P4000 (port 11435): Online" || echo "✗ Quadro P4000: Offline"
+        ;;
+    
+    6)
+        echo "Stopping servers..."
+        pkill -f "ollama serve" 2>/dev/null && echo "✓ Servers stopped" || echo "No servers running"
+        rm -f gtx1060.pid quadro.pid
+        ;;
+    
+    7)
+        echo "For the complete advanced setup, use the main processor script:"
+        echo
+        echo "wget <download the full script>"
+        echo "./existing_setup_processor.sh"
+        echo
+        echo "The full setup includes:"
+        echo "  - Advanced document format support (PDF, DOCX, images)"
+        echo "  - Batch processing with progress tracking"
+        echo "  - Performance monitoring"
+        echo "  - Model optimization"
+        echo "  - Result merging and analysis"
         ;;
     
     *)
