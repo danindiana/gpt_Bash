@@ -85,12 +85,12 @@ chmod +x *.sh
 ./t3600_optimized_setup.sh
 
 # 4. Choose option 9: "Complete automated setup"
-# This will:
-# - Install CUDA drivers
-# - Configure dual GPUs
-# - Install Ollama + Python dependencies
-# - Pull recommended models
-# - Create all launcher scripts
+ This will:
+ - Install CUDA drivers
+ - Configure dual GPUs
+ - Install Ollama + Python dependencies
+ - Pull recommended models
+ - Create all launcher scripts
 📝 Example Usage:
 bash# Start dual GPU servers
 ./start_dual_gpu.sh
