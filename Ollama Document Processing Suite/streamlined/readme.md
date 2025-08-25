@@ -1,4 +1,3 @@
-I've significantly enhanced the quick start script based on your excellent feedback. Here are the key improvements:
 🚀 Enhanced Features:
 1. Robust Server Management
 
@@ -32,13 +31,13 @@ Rich GPU status display showing utilization, memory, temperature
 🎯 Optimal Usage for Your T3600:
 bash# First time setup
 ./quick_start_t3600.sh
-# Choose: 1 (Quick Setup) → 2 (Check Models & Start Servers)
+ Choose: 1 (Quick Setup) → 2 (Check Models & Start Servers)
 
-# Process documents with smart selection
-# Choose: 4 (Process Documents) → "auto" for model selection
+ Process documents with smart selection
+ Choose: 4 (Process Documents) → "auto" for model selection
 
-# Your qwen3-coder:30b model will automatically be selected for code files!
-# Your phi4-reasoning:14b will be used for complex analysis tasks
+ Your qwen3-coder:30b model will automatically be selected for code files!
+ Your phi4-reasoning:14b will be used for complex analysis tasks
 📊 Model Routing Intelligence:
 The enhanced script now automatically routes files to your best models:
 
