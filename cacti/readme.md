@@ -1,5 +1,3 @@
----
-
 # 🌿 Cacti Installation Script for Ubuntu 24.04
 
 > **Fully automated setup** of Cacti with `nginx`, `PHP-FPM`, `MariaDB`, `RRDtool`, and `SNMP`  
