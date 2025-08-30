@@ -1,3 +1,37 @@
+```
+$ lspci -v | grep -A 10 -i ethernet
+03:00.0 Ethernet controller: Intel Corporation Ethernet Controller 10-Gigabit X540-AT2 (rev 01)
+	Subsystem: Inspur Electronic Information Industry Co., Ltd. 10G base-T DP EP102Ti3A Adapter
+	Flags: bus master, fast devsel, latency 0, IRQ 39, IOMMU group 22
+	Memory at 7c22400000 (64-bit, prefetchable) [size=2M]
+	Memory at 7c22a04000 (64-bit, prefetchable) [size=16K]
+	Capabilities: <access denied>
+	Kernel driver in use: ixgbe
+	Kernel modules: ixgbe
+
+03:00.1 Ethernet controller: Intel Corporation Ethernet Controller 10-Gigabit X540-AT2 (rev 01)
+	Subsystem: Inspur Electronic Information Industry Co., Ltd. 10G base-T DP EP102Ti3A Adapter
+	Flags: bus master, fast devsel, latency 0, IRQ 41, IOMMU group 23
+	Memory at 7c22200000 (64-bit, prefetchable) [size=2M]
+	Memory at 7c22a00000 (64-bit, prefetchable) [size=16K]
+	Capabilities: <access denied>
+	Kernel driver in use: ixgbe
+	Kernel modules: ixgbe
+
+--
+09:00.0 Ethernet controller: Intel Corporation I211 Gigabit Network Connection (rev 03)
+	Subsystem: ASRock Incorporation I211 Gigabit Network Connection
+	Flags: bus master, fast devsel, latency 0, IRQ 24, IOMMU group 27
+	Memory at fc600000 (32-bit, non-prefetchable) [size=128K]
+	I/O ports at f000 [disabled] [size=32]
+	Memory at fc620000 (32-bit, non-prefetchable) [size=16K]
+	Capabilities: <access denied>
+	Kernel driver in use: igb
+	Kernel modules: igb
+
+0b:00.0 Non-Essential Instrumentation [1300]: Advanced Micro Devices, Inc. [AMD] Starship/Matisse Reserved SPP
+```
+
 ```mermaid
 flowchart TD
     Start([Start Multi-NIC Beast Mode]) --> Setup[Setup Beast Mode]
