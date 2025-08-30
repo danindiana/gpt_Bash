@@ -146,6 +146,60 @@ The user followed these steps to get the Intel X540-T2 NIC working:
 5. **Handled Secure Boot** by importing the Intel public key.
 6. **Tested the NIC** by checking network interfaces, restarting the networking service, and performing a speed test.
 
+```mermaid
+flowchart TD
+    %% -------------------------------------------------
+    %% 1.7.1 Transmit Tx Path
+    %% -------------------------------------------------
+    subgraph Tx [Transmit Tx Path — 15 Steps]
+        direction LR
+        Tx1["1. Host creates Tx descriptor ring<br/>and configures one of 128 queues"]
+        Tx2["2. TCP/IP stack hands packet to host<br/>⇒ host pins packet in data buffers"]
+        Tx3["3. Host initializes descriptors<br/>pointing to buffers + control settings"]
+        Tx4["4. Host places descriptors into Tx ring<br/>and updates Queue Tail Pointer TDT"]
+
+        Tx5["5. X540 DMA detects TDT change<br/>⇒ issues PCIe read to fetch descriptors"]
+        Tx6["6. PCIe completions deliver descriptors<br/>into on-chip descriptor queue"]
+        Tx7["7. DMA fetches next descriptor<br/>⇒ issues PCIe reads for packet data"]
+        Tx8["8. Packet data arrives via PCIe<br/>DMA performs checksum/TSO offloads"]
+        Tx9["9. Packet stored into Tx FIFO<br/>⇒ forwarded to transmit switch"]
+
+        Tx10["10. Transmit switch arbitrates<br/>⇒ forwards packet to MAC"]
+        Tx11["11. MAC appends L2 CRC<br/>⇒ delivers to integrated PHY"]
+        Tx12["12. PHY performs PCS/scrambling/LDPC<br/>⇒ drives copper wire"]
+
+        Tx13["13. DMA updates descriptors<br/>after all PCIe completions"]
+        Tx14["14. DMA writes back descriptors & head pointer<br/>to host memory via PCIe"]
+        Tx15["15. Interrupt fired to host<br/>⇒ driver releases buffers"]
+    end
+
+    %% -------------------------------------------------
+    %% 1.7.2 Receive Rx Path
+    %% -------------------------------------------------
+    subgraph Rx [Receive Rx Path — 14 Steps]
+        direction RL
+        Rx1["1. Host creates Rx descriptor ring<br/>and configures one of 128 queues"]
+        Rx2["2. Host initializes descriptors<br/>pointing to empty data buffers"]
+        Rx3["3. Host places descriptors into Rx ring<br/>and updates Queue Tail Pointer RDT"]
+
+        Rx4["4. Packet arrives via copper wire into PHY"]
+        Rx5["5. PHY performs LDPC decoding<br/>descrambling, PCS decoding, etc"]
+        Rx6["6. PHY delivers packet to Rx MAC"]
+        Rx7["7. MAC forwards packet to Rx filter"]
+        Rx8["8. If packet matches filter criteria<br/>⇒ forwarded to Rx FIFO"]
+
+        Rx9["9. Rx DMA fetches next descriptor<br/>from host memory"]
+        Rx10["10. DMA writes packet data via PCIe<br/>into buffer(s) indicated by descriptors"]
+        Rx11["11. DMA updates descriptors<br/>used by the packet"]
+        Rx12["12. DMA writes back descriptors<br/>with status bits & offload info"]
+
+        Rx13["13. X540 triggers interrupt to host"]
+        Rx14["14. Host reads packet, hands to TCP/IP stack<br/>⇒ releases buffers/descriptors"]
+    end
+```
+
+
+
 By following these steps, the user was able to get the Intel X540-T2 NIC working on their system.
 
 
